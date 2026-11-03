@@ -194,8 +194,9 @@ button,.nav-item,.tab-item,.attn-cell{touch-action:manipulation;}
   .topbar{gap:8px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   .topbar-title{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   .topbar-right{gap:6px;flex-shrink:0;}
-  .periode-select{max-width:150px;padding:8px 8px;font-size:13px;text-overflow:ellipsis;}
-  #refreshDataBtn{padding:8px 10px;font-size:12px;}
+  .periode-select{max-width:128px;padding:8px 6px;font-size:13px;text-overflow:ellipsis;}
+  #refreshDataBtn{padding:8px 11px;font-size:16px;min-width:42px;}
+  #refreshDataBtn .lbl{display:none;}
   .btn{min-height:40px;}
   .btn-sm{min-height:34px;}
   .card{padding:14px;}
@@ -228,6 +229,19 @@ button,.nav-item,.tab-item,.attn-cell{touch-action:manipulation;}
   .modal-footer{flex-wrap:wrap;}
   .modal-footer .btn{flex:1 1 auto;}
   .login-card{padding:28px 20px;}
+}
+
+/* Tabel -> kartu di layar HP (dipakai Master Karyawan) */
+@media(max-width:640px){
+  .table-wrap:has(.tbl-cards){background:transparent;border:0;box-shadow:none;overflow:visible;}
+  .tbl-cards,.tbl-cards tbody,.tbl-cards tr,.tbl-cards td{display:block;width:100%;}
+  .tbl-cards thead{display:none;}
+  .tbl-cards tr{background:#fff;border:1px solid var(--border);border-radius:12px;margin:0 0 10px;padding:6px 12px;box-shadow:0 1px 2px rgba(15,23,42,.05);}
+  .tbl-cards td{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:6px 0;border:0 !important;text-align:right;}
+  .tbl-cards td::before{content:attr(data-label);color:var(--muted);font-weight:600;font-size:12px;text-align:left;flex:0 0 auto;}
+  .tbl-cards td.td-nama{font-size:15px;padding-top:8px;}
+  .tbl-cards td[data-label="Aksi"]{justify-content:flex-end;border-top:1px dashed var(--border) !important;margin-top:4px;padding-top:10px;}
+  .tbl-cards td[data-label="Aksi"]::before{display:none;}
 }
 @media (display-mode: standalone){
   body{user-select:none;-webkit-user-select:none;}
@@ -286,6 +300,7 @@ button,.nav-item,.tab-item,.attn-cell{touch-action:manipulation;}
           <div class="user-role" id="userRole">-</div>
         </div>
       </div>
+      <button class="btn btn-accent btn-block" id="installAppBtn2" type="button" style="display:none;margin-bottom:8px;">📲 Pasang Aplikasi</button>
       <button class="btn btn-ghost btn-block" id="logoutBtn" type="button">Keluar</button>
     </div>
   </aside>
@@ -296,7 +311,7 @@ button,.nav-item,.tab-item,.attn-cell{touch-action:manipulation;}
       <div class="topbar-title" id="pageTitle">Dashboard</div>
       <div class="topbar-right">
         <select id="periodeSelector" class="periode-select"></select>
-        <button class="btn btn-ghost" id="refreshDataBtn" type="button" title="Sinkronkan ulang data dari database">🔄 Refresh Data</button>
+        <button class="btn btn-ghost" id="refreshDataBtn" type="button" title="Sinkronkan ulang data dari database" aria-label="Refresh Data">🔄<span class="lbl"> Refresh Data</span></button>
       </div>
     </header>
     <main class="content" id="content"></main>
@@ -665,7 +680,7 @@ document.getElementById('refreshDataBtn').addEventListener('click', function () 
 
 function refreshAllData() {
   var btn = document.getElementById('refreshDataBtn');
-  btn.disabled = true; btn.textContent = '🔄 Menyinkronkan...';
+  btn.disabled = true; btn.innerHTML = '🔄<span class="lbl"> Menyinkronkan...</span>';
   Promise.all([
     gsRun('getPeriodeList', STATE.token),
     gsRun('getKaryawanList', STATE.token),
@@ -684,7 +699,7 @@ function refreshAllData() {
   }).catch(function (err) {
     toast('Gagal sinkronisasi: ' + (err.message || err), 'error');
   }).finally(function () {
-    btn.disabled = false; btn.textContent = '🔄 Refresh Data';
+    btn.disabled = false; btn.innerHTML = '🔄<span class="lbl"> Refresh Data</span>';
   });
 }
 
@@ -1137,7 +1152,7 @@ function renderKaryawan(content) {
         '<button class="btn btn-ghost" id="btnExportKaryawan" type="button">⬇️ Export Excel</button>' +
         '<button class="btn btn-accent" id="btnTambahKaryawan" type="button">+ Tambah Karyawan</button>' +
       '</div>' +
-      '<div class="table-wrap"><table id="karyawanTable"><thead><tr>' +
+      '<div class="table-wrap"><table id="karyawanTable" class="tbl-cards"><thead><tr>' +
         '<th>ID</th><th>Nama</th><th>Jabatan</th><th>Tgl Masuk</th><th>Lama Kerja</th><th class="text-right">Gaji Pokok</th><th>Status</th><th>Status Karyawan</th><th>Gender</th><th>Aksi</th>' +
       '</tr></thead><tbody id="karyawanTbody"></tbody></table></div>';
     KARYAWAN_VIEW_ = list;
@@ -1160,16 +1175,16 @@ function renderKaryawanRows(list) {
   tbody.innerHTML = list.map(function (k) {
     var badge = k.Status === 'Aktif' ? 'badge-green' : 'badge-gray';
     return '<tr>' +
-      '<td>' + esc(k.ID_Karyawan) + '</td>' +
-      '<td><b>' + esc(k.Nama) + '</b></td>' +
-      '<td>' + esc(k.Jabatan) + '</td>' +
-      '<td>' + fmtTanggal(k.Tanggal_Masuk) + '</td>' +
-      '<td>' + hitungLamaBekerja(k.Tanggal_Masuk) + '</td>' +
-      '<td class="text-right">' + fmtRupiah(k.Gaji_Pokok) + '</td>' +
-      '<td><span class="badge ' + badge + '">' + esc(k.Status) + '</span></td>' +
-      '<td>' + esc(k.Status_Kepegawaian || '-') + '</td>' +
-      '<td>' + esc(k.Jenis_Kelamin || '-') + '</td>' +
-      '<td>' +
+      '<td data-label="ID">' + esc(k.ID_Karyawan) + '</td>' +
+      '<td data-label="Nama" class="td-nama"><b>' + esc(k.Nama) + '</b></td>' +
+      '<td data-label="Jabatan">' + esc(k.Jabatan) + '</td>' +
+      '<td data-label="Tgl Masuk">' + fmtTanggal(k.Tanggal_Masuk) + '</td>' +
+      '<td data-label="Lama Kerja">' + hitungLamaBekerja(k.Tanggal_Masuk) + '</td>' +
+      '<td class="text-right" data-label="Gaji Pokok">' + fmtRupiah(k.Gaji_Pokok) + '</td>' +
+      '<td data-label="Status"><span class="badge ' + badge + '">' + esc(k.Status) + '</span></td>' +
+      '<td data-label="Status Karyawan">' + esc(k.Status_Kepegawaian || '-') + '</td>' +
+      '<td data-label="Gender">' + esc(k.Jenis_Kelamin || '-') + '</td>' +
+      '<td data-label="Aksi">' +
         '<button class="btn btn-ghost btn-sm" onclick="openKaryawanModal(\'' + k.ID_Karyawan + '\')" type="button">Edit</button> ' +
         '<button class="btn btn-danger btn-sm" onclick="confirmDeleteKaryawan(\'' + k.ID_Karyawan + '\')" type="button">Hapus</button>' +
       '</td>' +
@@ -4650,23 +4665,46 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   });
 }
 var deferredInstallPrompt_ = null;
+function isStandalone_() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function isIOS_() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function updateInstallUI_() {
+  var can = !isStandalone_() && (!!deferredInstallPrompt_ || isIOS_());
+  ['installAppBtn', 'installAppBtn2'].forEach(function (id) {
+    var b = document.getElementById(id); if (b) b.style.display = can ? '' : 'none';
+  });
+}
+function installApp_() {
+  if (deferredInstallPrompt_) {
+    deferredInstallPrompt_.prompt();
+    deferredInstallPrompt_.userChoice.finally(function () { deferredInstallPrompt_ = null; updateInstallUI_(); });
+  } else if (isIOS_()) {
+    openModal('Pasang di iPhone / iPad',
+      '<ol style="padding-left:18px;line-height:1.9;">' +
+      '<li>Buka halaman ini di <b>Safari</b> (bukan Chrome/aplikasi lain).</li>' +
+      '<li>Ketuk tombol <b>Bagikan</b> <span style="font-size:18px;">⬆️</span> di bagian bawah layar.</li>' +
+      '<li>Pilih <b>Tambah ke Layar Utama</b>, lalu ketuk <b>Tambah</b>.</li></ol>' +
+      '<div class="alert alert-info">Setelah itu aplikasi muncul sebagai ikon "Gaji WLP" di layar utama dan terbuka layar penuh.</div>',
+      '<button class="btn btn-primary" type="button" onclick="closeModal()">Mengerti</button>');
+  }
+}
 window.addEventListener('beforeinstallprompt', function (e) {
   e.preventDefault();
   deferredInstallPrompt_ = e;
-  var b = document.getElementById('installAppBtn');
-  if (b) b.style.display = 'inline-flex';
+  updateInstallUI_();
 });
-document.getElementById('installAppBtn').addEventListener('click', function () {
-  if (!deferredInstallPrompt_) return;
-  deferredInstallPrompt_.prompt();
-  deferredInstallPrompt_.userChoice.finally(function () {
-    deferredInstallPrompt_ = null;
-    document.getElementById('installAppBtn').style.display = 'none';
-  });
+window.addEventListener('appinstalled', function () { deferredInstallPrompt_ = null; updateInstallUI_(); });
+['installAppBtn', 'installAppBtn2'].forEach(function (id) {
+  document.getElementById(id).addEventListener('click', installApp_);
 });
-window.addEventListener('appinstalled', function () {
-  var b = document.getElementById('installAppBtn'); if (b) b.style.display = 'none';
-});
+updateInstallUI_();
+if (window.matchMedia) {
+  var mqStandalone_ = window.matchMedia('(display-mode: standalone)');
+  if (mqStandalone_.addEventListener) mqStandalone_.addEventListener('change', updateInstallUI_);
+}
 </script>
 </body>
 </html>

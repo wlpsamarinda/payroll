@@ -28,9 +28,13 @@ git push -u origin main
 ```
 Di GitHub: **Settings > Pages > Source: Deploy from a branch > main / (root)**. Alamat: `https://<user>.github.io/<repo>/`.
 
-## 4. Pasang di HP
-- **Android (Chrome):** buka alamatnya > tombol **Pasang Aplikasi di Layar Utama** di halaman login, atau menu ⋮ > *Install app*.
-- **iPhone (Safari):** tombol Bagikan > *Add to Home Screen*.
+## 4. Pasang sebagai aplikasi (PC & HP)
+Buka alamat GitHub Pages lewat **HTTPS**, lalu:
+- **PC (Chrome / Edge):** klik ikon **Install** (monitor + panah) di ujung kanan address bar, atau tombol **📲 Pasang Aplikasi** (halaman login / menu samping), atau menu ⋮ > *Install Sistem Gaji*. Aplikasi terbuka di jendela sendiri dan muncul di Start Menu / Desktop.
+- **Android (Chrome):** tombol **📲 Pasang Aplikasi**, atau menu ⋮ > *Install app* / *Add to Home screen*.
+- **iPhone/iPad (Safari saja):** Bagikan ⬆️ > *Tambah ke Layar Utama*. Tombol **📲 Pasang Aplikasi** menampilkan panduannya.
+
+Tombol pasang otomatis hilang kalau aplikasi sudah terpasang.
 
 ## Catatan
 - Absensi/Lembur: klik kanan (desktop) = **tekan lama** (HP) pada sel untuk mengisi jam lembur & catatan.
