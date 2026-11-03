@@ -1125,6 +1125,8 @@ function buildKPIRankingTable(list) {
 /* ============================================================================
    MASTER KARYAWAN
    ============================================================================ */
+var KARYAWAN_VIEW_ = [];
+
 function renderKaryawan(content) {
   return gsRun('getKaryawanList', STATE.token).then(function (list) {
     STATE.karyawan = list;
@@ -1132,18 +1134,22 @@ function renderKaryawan(content) {
       '<div class="toolbar">' +
         '<input class="search-input" id="karyawanSearch" placeholder="Cari nama / jabatan / ID...">' +
         '<div class="spacer"></div>' +
+        '<button class="btn btn-ghost" id="btnExportKaryawan" type="button">⬇️ Export Excel</button>' +
         '<button class="btn btn-accent" id="btnTambahKaryawan" type="button">+ Tambah Karyawan</button>' +
       '</div>' +
       '<div class="table-wrap"><table id="karyawanTable"><thead><tr>' +
         '<th>ID</th><th>Nama</th><th>Jabatan</th><th>Tgl Masuk</th><th>Lama Kerja</th><th class="text-right">Gaji Pokok</th><th>Status</th><th>Status Karyawan</th><th>Gender</th><th>Aksi</th>' +
       '</tr></thead><tbody id="karyawanTbody"></tbody></table></div>';
+    KARYAWAN_VIEW_ = list;
     renderKaryawanRows(list);
     document.getElementById('karyawanSearch').addEventListener('input', function (e) {
       var q = e.target.value.toLowerCase();
-      renderKaryawanRows(list.filter(function (k) {
+      KARYAWAN_VIEW_ = list.filter(function (k) {
         return (k.Nama || '').toLowerCase().indexOf(q) > -1 || (k.Jabatan || '').toLowerCase().indexOf(q) > -1 || (k.ID_Karyawan || '').toLowerCase().indexOf(q) > -1;
-      }));
+      });
+      renderKaryawanRows(KARYAWAN_VIEW_);
     });
+    document.getElementById('btnExportKaryawan').addEventListener('click', function () { eksporKaryawanXlsx_(KARYAWAN_VIEW_); });
     document.getElementById('btnTambahKaryawan').addEventListener('click', function () { openKaryawanModal(null); });
   });
 }
@@ -2237,6 +2243,123 @@ function buildRekapLemburSheet_(wb, opts) {
   ws.getColumn(1).width = 28;
   for (var c2 = 2; c2 <= 1 + dates.length; c2++) ws.getColumn(c2).width = 5.5;
   ws.getColumn(2 + dates.length).width = 11;
+}
+
+// ===== EXPORT MASTER KARYAWAN (XLSX) =====
+function dateToExcelUTC_(d) {
+  return d ? new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) : null;
+}
+
+function buildMasterKaryawanSheet_(wb, opts) {
+  var style = getExportStyleFromState_();
+  var list = opts.list || [];
+  var ws = wb.addWorksheet('Master Karyawan', {
+    pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } },
+    headerFooter: { oddFooter: '&LDicetak dari Sistem Gaji&CHalaman &P dari &N&R&D' }
+  });
+  var cols = [
+    { h: 'No', w: 5, al: 'center' },
+    { h: 'ID', w: 11, al: 'center' },
+    { h: 'Nama', w: 26, al: 'left' },
+    { h: 'Jabatan', w: 22, al: 'left' },
+    { h: 'Tanggal Masuk', w: 15, al: 'center' },
+    { h: 'Lama Kerja', w: 12, al: 'center' },
+    { h: 'Gaji Pokok', w: 16, al: 'right' },
+    { h: 'Status', w: 11, al: 'center' },
+    { h: 'Status Karyawan', w: 17, al: 'center' },
+    { h: 'Jenis Kelamin', w: 14, al: 'center' },
+    { h: 'Tanggal Lahir', w: 15, al: 'center' },
+    { h: 'No. HP', w: 16, al: 'left' },
+    { h: 'NIK', w: 21, al: 'left' },
+    { h: 'Alamat', w: 40, al: 'left' },
+    { h: 'Catatan', w: 30, al: 'left' }
+  ];
+  var n = cols.length;
+  var aktif = list.filter(function (k) { return k.Status === 'Aktif'; }).length;
+  var tgl = new Date();
+  var tglStr = ('0' + tgl.getDate()).slice(-2) + '/' + ('0' + (tgl.getMonth() + 1)).slice(-2) + '/' + tgl.getFullYear();
+  addTitleRows_(ws, n, opts.perusahaan || 'Wonderland Park Samarinda', 'DATA MASTER KARYAWAN',
+    'Per ' + tglStr + '  •  Total ' + list.length + ' karyawan (' + aktif + ' aktif, ' + (list.length - aktif) + ' nonaktif)');
+
+  var hr = 5, headerRow = ws.getRow(hr);
+  cols.forEach(function (c, i) { headerRow.getCell(i + 1).value = c.h; ws.getColumn(i + 1).width = c.w; });
+  styleHeaderRow_(headerRow, n);
+  ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: hr, column: n } };
+  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: hr, showGridLines: false }];
+  ws.pageSetup.printTitlesRow = hr + ':' + hr;
+
+  var first = hr + 1;
+  list.forEach(function (k, idx) {
+    var row = ws.getRow(first + idx);
+    var masuk = dateToExcelUTC_(parseTanggalFleksibel_(k.Tanggal_Masuk));
+    var lahir = dateToExcelUTC_(parseTanggalFleksibel_(k.Tanggal_Lahir));
+    var vals = [
+      idx + 1, k.ID_Karyawan || '', k.Nama || '', k.Jabatan || '', masuk || (k.Tanggal_Masuk || ''),
+      hitungLamaBekerja(k.Tanggal_Masuk), Number(k.Gaji_Pokok) || 0, k.Status || '', k.Status_Kepegawaian || '',
+      k.Jenis_Kelamin || '', lahir || (k.Tanggal_Lahir || ''), String(k.No_HP || ''), String(k.NIK || ''),
+      k.Alamat || '', k.Catatan || ''
+    ];
+    vals.forEach(function (v, i) {
+      var cell = row.getCell(i + 1);
+      cell.value = (v === '' ? null : v);
+      cell.border = THIN_BORDER_;
+      cell.font = { size: 10, bold: i === 2 };
+      cell.alignment = { horizontal: cols[i].al, vertical: 'middle', wrapText: i >= 13 };
+      if (v instanceof Date) cell.numFmt = 'dd/mm/yyyy';
+      if (i === 6) cell.numFmt = '"Rp" #,##0';
+      if (i === 11 || i === 12) cell.numFmt = '@';          // teks: cegah nol depan hilang / format ilmiah
+    });
+    var st = row.getCell(8);
+    if (k.Status === 'Aktif') st.font = { size: 10, bold: true, color: { argb: 'FF15803D' } };
+    else st.font = { size: 10, bold: true, color: { argb: 'FF94A3B8' } };
+    row.height = 20;
+    if (style.zebraAktif && idx % 2 === 1) {
+      row.eachCell({ includeEmpty: true }, function (cell) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.zebra } };
+      });
+    }
+  });
+
+  // Baris TOTAL: jumlah karyawan & total gaji pokok (rumus, ikut berubah jika data diedit)
+  var last = first + list.length - 1, tr = ws.getRow(last + 1);
+  for (var c = 1; c <= n; c++) {
+    var cell = tr.getCell(c);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.totalBg } };
+    cell.font = { bold: true, size: 10, color: { argb: style.teksTotal } };
+    cell.border = { top: { style: 'double', color: { argb: 'FF0F172A' } }, bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }, left: THIN_BORDER_.left, right: THIN_BORDER_.right };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  }
+  ws.mergeCells(last + 1, 1, last + 1, 5);
+  tr.getCell(1).value = 'TOTAL  (' + list.length + ' karyawan)';
+  tr.getCell(1).alignment = { vertical: 'middle', horizontal: 'right' };
+  if (list.length > 0) {
+    var tot = list.reduce(function (a, k) { return a + (Number(k.Gaji_Pokok) || 0); }, 0);
+    tr.getCell(7).value = { formula: 'SUM(G' + first + ':G' + last + ')', result: tot };
+    tr.getCell(7).numFmt = '"Rp" #,##0';
+    tr.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+  }
+  tr.height = 24;
+
+  var note = ws.getRow(last + 3);
+  ws.mergeCells(last + 3, 1, last + 3, n);
+  note.getCell(1).value = 'Dokumen ini bersifat rahasia dan hanya untuk keperluan internal perusahaan.';
+  note.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
+  return ws;
+}
+
+function eksporKaryawanXlsx_(list) {
+  if (!list || list.length === 0) { toast('Tidak ada data karyawan untuk diexport.', 'error'); return; }
+  toast('Menyiapkan file Excel...', 'info');
+  var b = getBrandingFromState_();
+  var wb = new ExcelJS.Workbook();
+  wb.creator = b.perusahaan || 'Sistem Gaji';
+  wb.created = new Date();
+  buildMasterKaryawanSheet_(wb, { list: list, perusahaan: b.perusahaan });
+  var d = new Date();
+  var stamp = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+  return downloadWorkbook_(wb, 'Master_Karyawan_' + stamp).then(function () {
+    toast('File Master_Karyawan_' + stamp + '.xlsx berhasil diunduh', 'success');
+  });
 }
 
 function eksporRekapLemburXlsx_() {
