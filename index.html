@@ -282,7 +282,7 @@ button,.nav-item,.tab-item,.attn-cell{touch-action:manipulation;}
       <a data-page="dashboard" class="nav-item active"><span>📊</span>Dashboard</a>
       <a data-page="karyawan" class="nav-item"><span>👥</span>Master Karyawan</a>
       <a data-page="absensi" class="nav-item"><span>🗓️</span>Absensi Harian</a>
-      <a data-page="rekapabsensi" class="nav-item"><span>📋</span>Rekap Absensi (Real)</a>
+      <a data-page="rekapabsensi" class="nav-item"><span>📋</span>Rekap Absensi Majoo</a>
       <a data-page="lembur" class="nav-item"><span>⏱️</span>Rekap Lembur</a>
       <a data-page="kpirank" class="nav-item"><span>🏅</span>Ranking KPI Kehadiran</a>
       <a data-page="komponen" class="nav-item"><span>💰</span>Komponen Gaji</a>
@@ -753,7 +753,7 @@ function ensureCurrentPeriodeExists() {
 var ROLE_PAGES = {
   Karyawan: ['dashboard', 'absensi', 'lembur', 'kpirank', 'slip'],
   HR: ['dashboard', 'karyawan', 'absensi', 'rekapabsensi', 'lembur', 'kpirank', 'komponen', 'perhitungan', 'slip', 'tandaterima', 'importexport', 'pengaturan'].filter(function (p) { return p !== 'rekapabsensi'; }),
-  // Admin: hanya input & lihat Absensi Harian, Rekap Absensi (Real) dan Rekap Lembur.
+  // Admin: hanya input & lihat Absensi Harian, Rekap Absensi Majoo dan Rekap Lembur.
   Admin: ['absensi', 'rekapabsensi', 'lembur']
   // Owner: semua halaman (tidak dibatasi di sini)
 };
@@ -849,7 +849,7 @@ function submitNewPeriode() {
    ============================================================================ */
 var PAGE_TITLES = {
   dashboard: 'Dashboard', karyawan: 'Master Karyawan', absensi: 'Absensi Harian',
-  rekapabsensi: 'Rekap Absensi (Data Real Majoo)',
+  rekapabsensi: 'Rekap Absensi Majoo',
   lembur: 'Rekap Lembur', kpirank: 'Ranking KPI Kehadiran', komponen: 'Komponen Gaji', perhitungan: 'Perhitungan Gaji',
   slip: 'Slip Gaji', tandaterima: 'Tanda Terima', importexport: 'Import / Export', pengaturan: 'Pengaturan'
 };
@@ -1142,12 +1142,23 @@ function buildKPIRankingTable(list) {
    ============================================================================ */
 var KARYAWAN_VIEW_ = [];
 
+function getTampilkanNonaktif_() {
+  try { return localStorage.getItem('wlp_show_nonaktif') === '1'; } catch (e) { return false; }
+}
+function setTampilkanNonaktif_(v) {
+  try { localStorage.setItem('wlp_show_nonaktif', v ? '1' : '0'); } catch (e) {}
+}
+
 function renderKaryawan(content) {
   return gsRun('getKaryawanList', STATE.token).then(function (list) {
     STATE.karyawan = list;
+    var jmlNonaktif = list.filter(function (k) { return k.Status !== 'Aktif'; }).length;
     content.innerHTML =
       '<div class="toolbar">' +
         '<input class="search-input" id="karyawanSearch" placeholder="Cari nama / jabatan / ID...">' +
+        '<label class="chk-nonaktif" style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">' +
+          '<input type="checkbox" id="chkNonaktif"' + (getTampilkanNonaktif_() ? ' checked' : '') + '> Tampilkan nonaktif' +
+          '<span id="infoNonaktif" style="font-weight:500;color:var(--muted);"></span></label>' +
         '<div class="spacer"></div>' +
         '<button class="btn btn-ghost" id="btnExportKaryawan" type="button">⬇️ Export Excel</button>' +
         '<button class="btn btn-accent" id="btnTambahKaryawan" type="button">+ Tambah Karyawan</button>' +
@@ -1155,15 +1166,20 @@ function renderKaryawan(content) {
       '<div class="table-wrap"><table id="karyawanTable" class="tbl-cards"><thead><tr>' +
         '<th>ID</th><th>Nama</th><th>Jabatan</th><th>Tgl Masuk</th><th>Lama Kerja</th><th class="text-right">Gaji Pokok</th><th>Status</th><th>Status Karyawan</th><th>Gender</th><th>Aksi</th>' +
       '</tr></thead><tbody id="karyawanTbody"></tbody></table></div>';
-    KARYAWAN_VIEW_ = list;
-    renderKaryawanRows(list);
-    document.getElementById('karyawanSearch').addEventListener('input', function (e) {
-      var q = e.target.value.toLowerCase();
+
+    function terapkan() {
+      var q = document.getElementById('karyawanSearch').value.toLowerCase();
+      var tampilNon = document.getElementById('chkNonaktif').checked;
       KARYAWAN_VIEW_ = list.filter(function (k) {
-        return (k.Nama || '').toLowerCase().indexOf(q) > -1 || (k.Jabatan || '').toLowerCase().indexOf(q) > -1 || (k.ID_Karyawan || '').toLowerCase().indexOf(q) > -1;
+        if (!tampilNon && k.Status !== 'Aktif') return false;
+        return !q || (k.Nama || '').toLowerCase().indexOf(q) > -1 || (k.Jabatan || '').toLowerCase().indexOf(q) > -1 || (k.ID_Karyawan || '').toLowerCase().indexOf(q) > -1;
       });
+      document.getElementById('infoNonaktif').textContent = jmlNonaktif ? '(' + jmlNonaktif + ' nonaktif' + (tampilNon ? '' : ' disembunyikan') + ')' : '';
       renderKaryawanRows(KARYAWAN_VIEW_);
-    });
+    }
+    terapkan();
+    document.getElementById('karyawanSearch').addEventListener('input', terapkan);
+    document.getElementById('chkNonaktif').addEventListener('change', function (e) { setTampilkanNonaktif_(e.target.checked); terapkan(); });
     document.getElementById('btnExportKaryawan').addEventListener('click', function () { eksporKaryawanXlsx_(KARYAWAN_VIEW_); });
     document.getElementById('btnTambahKaryawan').addEventListener('click', function () { openKaryawanModal(null); });
   });
@@ -1824,8 +1840,11 @@ function renderRekapAbsensi(content) {
     gsRun('getRekapAbsensi', STATE.token, STATE.periode),
     gsRun('getShiftList', STATE.token)
   ]).then(function (results) {
-    var rows = results[0];
     var shiftList = results[1];
+    // Karyawan berstatus Nonaktif di Master Karyawan tidak ditampilkan.
+    var statusById_ = {};
+    STATE.karyawan.forEach(function (k) { statusById_[k.ID_Karyawan] = k.Status; });
+    var rows = results[0].filter(function (r) { return statusById_[r.ID_Karyawan] === undefined || statusById_[r.ID_Karyawan] === 'Aktif'; });
     REKAP_ABSENSI_CACHE_.rows = rows;
     REKAP_ABSENSI_CACHE_.shiftList = shiftList;
 
@@ -1888,7 +1907,7 @@ function renderRekapAbsensi(content) {
       '<div class="alert alert-info">Periode: <b>' + esc(periodeRangeLabel(STATE.periode)) + '</b>. Data ini dihitung otomatis dari jam masuk/pulang real yang diimpor dari sistem absensi Majoo. Shift tiap karyawan dideteksi otomatis dari jam masuk terdekat (Pagi 08:00, Siang 09:30, Teknisi Kolam 07:00, Wakar 17:30). Jam kerja lebih dari 8 jam TIDAK otomatis dihitung sebagai lembur berbayar kecuali ditandai manual — atur di tombol <b>⚙️ Atur Shift</b> atau per baris di halaman Detail. Baris bertanda <b>⚠️ Perlu Dicek</b> punya Total Jam Kerja di bawah batas anomali (atur di Pengaturan → Parameter Telat) — kemungkinan tap-in/tap-out ganda di Majoo, murni penanda untuk direview manual, angka TIDAK diubah otomatis.</div>' +
       '<div class="grid grid-4" style="margin-bottom:16px;">' +
         statCard('👥', 'Karyawan Tercatat', idList.length, '#2563eb') +
-        statCard('🕒', 'Total Jam Kerja (Real)', round1_(totalJamSemua) + ' jam', '#16a34a') +
+        statCard('🕒', 'Total Jam Kerja', round1_(totalJamSemua) + ' jam', '#16a34a') +
         statCard('📐', 'Total Jam Kerja Seharusnya', round1_(totalJamKerjaSeharusnya) + ' jam', '#0891b2') +
         statCard('⚡', 'Total Overtime', round1_(totalOvertimeLemburSemua) + ' / ' + round1_(totalOvertimeSemua) + ' jam', '#8b5cf6') +
         statCard('⏰', 'Kejadian Telat', totalTelatSemua, '#ea580c') +
@@ -1920,7 +1939,7 @@ function renderRekapAbsensi(content) {
     document.getElementById('btnImportRekapAbsensi').addEventListener('click', prosesImportRekapAbsensi);
     document.getElementById('btnHitungUlangShiftTelat').addEventListener('click', function () {
       var btn = this;
-      if (!confirm('Hitung ulang shift, keterlambatan & status anomali untuk SEMUA data Rekap Absensi Real yang sudah ada (semua periode), berdasarkan jam masuk/pulang aktual yang sudah tersimpan?\n\nTidak perlu import ulang file Majoo. Toggle "Dihitung Lembur" yang sudah diubah manual tidak akan ikut tertimpa.')) return;
+      if (!confirm('Hitung ulang shift, keterlambatan & status anomali untuk SEMUA data Rekap Absensi Majoo yang sudah ada (semua periode), berdasarkan jam masuk/pulang aktual yang sudah tersimpan?\n\nTidak perlu import ulang file Majoo. Toggle "Dihitung Lembur" yang sudah diubah manual tidak akan ikut tertimpa.')) return;
       btn.disabled = true; btn.textContent = 'Menghitung ulang...';
       gsRun('hitungUlangShiftTelat', STATE.token).then(function (res) {
         btn.disabled = false; btn.textContent = '🔄 Hitung Ulang Shift & Telat';
@@ -1943,11 +1962,11 @@ function renderRekapAbsensi(content) {
           Jam_Overtime: r.Jam_Overtime, Overtime_Dihitung_Lembur: r.Overtime_Dihitung_Lembur,
           Status_Anomali: r.Status_Anomali === 'Y' ? 'Perlu Dicek' : ''
         };
-      }), 'Rekap_Absensi_Real_' + STATE.periode);
+      }), 'Rekap_Absensi_Majoo_' + STATE.periode);
     });
     var btnHapusRekap = document.getElementById('btnHapusRekapAbsensi');
     if (btnHapusRekap) btnHapusRekap.addEventListener('click', function () {
-      if (!confirm('Hapus SEMUA data Rekap Absensi Real untuk periode ' + periodeLabel(STATE.periode) + '? Tindakan ini tidak bisa dibatalkan.')) return;
+      if (!confirm('Hapus SEMUA data Rekap Absensi Majoo untuk periode ' + periodeLabel(STATE.periode) + '? Tindakan ini tidak bisa dibatalkan.')) return;
       gsRun('clearRekapAbsensiPeriode', STATE.token, STATE.periode).then(function (res) {
         toast(res.message, 'success');
         navigate('rekapabsensi');
@@ -4401,7 +4420,7 @@ function renderPengaturan(content) {
       } else if (tab === 'telat') {
         renderParamCard(el, 'Parameter Perhitungan Telat', 'Atur rate potongan per kejadian telat dan toleransi (jumlah telat yang masih dibebaskan dari potongan) per periode.', [
           { title: '', keys: ['RATE_TELAT', 'BATAS_TELAT_GRATIS'] },
-          { title: 'Rekap Absensi (Real) — Deteksi Anomali', keys: ['BATAS_JAM_ANOMALI'] }
+          { title: 'Rekap Absensi Majoo — Deteksi Anomali', keys: ['BATAS_JAM_ANOMALI'] }
         ], false);
       } else if (tab === 'makan') {
         renderParamCard(el, 'Parameter Tunjangan Makan Karyawan', 'Atur rate tunjangan makan per hari hadir. Dikalikan otomatis dengan jumlah hari hadir efektif tiap karyawan (bisa ditimpa manual per karyawan di menu Komponen Gaji).', [

@@ -46,8 +46,8 @@ Tombol pasang otomatis hilang kalau aplikasi sudah terpasang.
 | Role | Menu yang bisa dibuka |
 |---|---|
 | Owner | Semua menu |
-| HR | Semua kecuali Rekap Absensi (Real) |
-| **Admin** | **Hanya Absensi Harian, Rekap Absensi (Real), Rekap Lembur** (lihat + input) |
+| HR | Semua kecuali Rekap Absensi Majoo |
+| **Admin** | **Hanya Absensi Harian, Rekap Absensi Majoo, Rekap Lembur** (lihat + input) |
 | Karyawan | Dashboard, Absensi, Lembur, Ranking KPI, Slip (milik sendiri) |
 
 Pembatasan Admin dijaga di dua lapis: menu disembunyikan di frontend **dan** ditolak di server (`Code.gs`),

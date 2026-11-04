@@ -1,5 +1,5 @@
 // Service worker: app shell offline + cache library CDN. Panggilan API (Apps Script) TIDAK pernah di-cache.
-var VERSION = 'wlp-gaji-v1.9.3';
+var VERSION = 'wlp-gaji-v1.9.4';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 var CDN = [
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
